@@ -1,0 +1,57 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Koreader sync server, more focused on single user
+servers:
+    - url: http://localhost:8050
+      description: Development server
+#    - url:
+#      description: Production server
+
+paths:
+  /healthcheck:
+    get:
+      responses:
+        '200':
+          description: Server is up & running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /users/create:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPayload'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '402':
+          description: Any unsuccessful response (User already exists, registration is disabled, etc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+components:
+  schemas:
+    UserPayload:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "anthony"
+        password:
+          type: string
+          example: "tran"
+    Response:
+        type: object
+        properties:
+            message:
+              type: string
+              example: "Server is up & running"

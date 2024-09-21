@@ -1,0 +1,9 @@
+development:
+  dialect: sqlite3
+  datasource: db/sqlite/db.sqlite
+  dir: db/migrations
+
+production:
+  dialect: sqlite3
+  datasource: db/sqlite/db.sqlite
+  dir: db/migrations
