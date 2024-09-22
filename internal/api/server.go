@@ -26,7 +26,7 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 
 	// Return early if registration is disabled
 	if !registrationEnabled {
-		slog.Info("Registration is disabled", "IP", request)
+		slog.Info("Registration is disabled", "username", *username, "IP", ctx.Value("ip"))
 		message := "Registration is disabled"
 		return PostUsersCreate402JSONResponse{
 			Message: &message,

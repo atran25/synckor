@@ -1,13 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/atran25/synckor/internal/api"
 	"github.com/atran25/synckor/internal/config"
 	"github.com/atran25/synckor/internal/database"
 	"github.com/atran25/synckor/internal/sqlc"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"log/slog"
 	"net/http"
@@ -59,19 +59,34 @@ func main() {
 	slog.Info("Database connection established", "DB", db)
 	server := api.NewServer(cfg, db)
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
+	r.Use(func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			ip := request.RemoteAddr
+			httpMethod := request.Method
+			ctx := context.WithValue(request.Context(), "ip", ip)
+			ctx = context.WithValue(ctx, "httpMethod", httpMethod)
+			slog.Info("Request received", "IP", ip, "Method", httpMethod)
+			handler.ServeHTTP(writer, request.WithContext(ctx))
+		})
+	})
+
+	// Serve the openapi doc on /doc
 	workDir, _ := os.Getwd()
-	fs := http.FileServer(filepath.Join(workDir, "web"))
-	r.Handle("/doc/", http.StripPrefix("/doc", fs))
+	fs := http.FileServer(http.Dir(filepath.Join(workDir, "doc")))
+	r.Get("/doc", http.StripPrefix("/doc", fs).ServeHTTP)
+	//r.Handle("/doc/", http.StripPrefix("/doc", fs))
+	r.Get("/openapi.yaml", func(writer http.ResponseWriter, request *http.Request) {
+		http.ServeFile(writer, request, filepath.Join(workDir, "api.yaml"))
+	})
+
 	h := api.HandlerFromMux(api.NewStrictHandler(server, nil), r)
 	slog.Info(fmt.Sprintf("Starting server on port %d", cfg.Port))
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: h,
 	}
-	// 👇 the walking function 🚶‍♂️
+
+	// Get all routes and their middlewares
 	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
 		fmt.Printf("[%s]: '%s' has %d middlewares\n", method, route, len(middlewares))
 		return nil
