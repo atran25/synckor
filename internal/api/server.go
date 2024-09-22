@@ -12,6 +12,10 @@ type Server struct {
 	DB  *sqlc.Queries
 }
 
+type ServerSpecInterface interface {
+	GetHealthcheck(ctx context.Context, request GetHealthcheckRequestObject) (GetHealthcheckResponseObject, error)
+}
+
 func (s *Server) GetHealthcheck(ctx context.Context, request GetHealthcheckRequestObject) (GetHealthcheckResponseObject, error) {
 	message := "Server is up and running"
 	return GetHealthcheck200JSONResponse{
@@ -21,7 +25,7 @@ func (s *Server) GetHealthcheck(ctx context.Context, request GetHealthcheckReque
 
 func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateRequestObject) (PostUsersCreateResponseObject, error) {
 	username := request.Body.Username
-	//password := request.Body.Password
+	password := request.Body.Password
 	registrationEnabled := s.Cfg.RegistrationEnabled
 
 	// Return early if registration is disabled
@@ -33,15 +37,30 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 		}, nil
 	}
 
+	// Check if user already exists
 	user, err := s.DB.GetUser(ctx, *username)
 	if err == nil {
-		slog.Info("User already exists", "User", user)
+		slog.Info("User already exists", "User", user, "IP", ctx.Value("ip"))
 		message := "User already exists"
 		return PostUsersCreate402JSONResponse{
 			Message: &message,
 		}, nil
 	}
 
+	// Create user
+	user, err = s.DB.CreateUser(ctx, sqlc.CreateUserParams{
+		Username:     *username,
+		Passwordhash: *password,
+		Isactive:     true,
+		Isadmin:      false,
+	})
+	if err != nil {
+		slog.Error("Failed to create user", "error", err, "username", *username, "IP", ctx.Value("ip"))
+		message := "Failed to create user"
+		return PostUsersCreate402JSONResponse{
+			Message: &message,
+		}, nil
+	}
 	message := "User created successfully"
 	return PostUsersCreate201JSONResponse{
 		Message: &message,
