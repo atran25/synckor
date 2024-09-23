@@ -1,7 +1,7 @@
 openapi: "3.0.0"
 info:
   version: 1.0.0
-  title: Koreader sync server, more focused on single user
+  title: Synckor, Koreader Sync Server
 servers:
     - url: http://localhost:8050
       description: Development server
@@ -38,6 +38,71 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Response'
+  /users/auth:
+    get:
+      parameters:
+        - name: x-auth-user
+          in: header
+          required: true
+          schema:
+            type: string
+            example: "username"
+            description: Username of the user
+        - name: x-auth-key
+          in: header
+          required: true
+          schema:
+            type: string
+            example: "password"
+            description: Password hash of the user
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '401':
+          description: User authentication failed (inactive user, wrong password, etc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /syncs/progress:
+    put:
+        parameters:
+          - name: x-auth-user
+            in: header
+            required: true
+            schema:
+                type: string
+                example: "username"
+                description: Username of the user
+          - name: x-auth-key
+            in: header
+            required: true
+            schema:
+                type: string
+                example: "password"
+                description: Password hash of the user
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPayload'
+        responses:
+            '200':
+              description: Sync progress updated successfully
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/Response'
+            '401':
+              description: Sync progress update failed (inactive user, wrong password, etc)
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/Response'
 components:
   schemas:
     UserPayload:
@@ -49,9 +114,30 @@ components:
         password:
           type: string
           example: "tran"
+    DocumentPayload:
+      type: object
+      properties:
+        document:
+          type: string
+          example: "7e330d931b87f03326375cae"
+        progress:
+          type: string
+          example: "0.5"
+        percentage:
+          type: number
+          example: 0.5
+        device:
+          type: string
+          example: "kindle-pw4"
+        deviceId:
+          type: string
+          example: "7e330d931b87f03326375cae"
     Response:
         type: object
         properties:
+            userName:
+              type: string
+              example: "anthony"
             message:
               type: string
               example: "Server is up & running"
