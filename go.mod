@@ -9,8 +9,10 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.0
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/oapi-codegen/testutil v1.1.0
 	github.com/rubenv/sql-migrate v1.7.0
 	github.com/sqlc-dev/sqlc v1.27.0
+	github.com/stretchr/testify v1.9.0
 	modernc.org/sqlite v1.33.1
 )
 
@@ -18,6 +20,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -50,6 +53,7 @@ require (
 	github.com/pingcap/failpoint v0.0.0-20220801062533-2eaa32854a6c // indirect
 	github.com/pingcap/log v1.1.0 // indirect
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20231103154709-4f00ece106b1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/riza-io/grpc-go v0.2.0 // indirect
 	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect

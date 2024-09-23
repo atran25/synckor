@@ -10,12 +10,23 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
+// DocumentPayload defines model for DocumentPayload.
+type DocumentPayload struct {
+	Device     *string  `json:"device,omitempty"`
+	DeviceId   *string  `json:"deviceId,omitempty"`
+	Document   *string  `json:"document,omitempty"`
+	Percentage *float32 `json:"percentage,omitempty"`
+	Progress   *string  `json:"progress,omitempty"`
+}
+
 // Response defines model for Response.
 type Response struct {
-	Message *string `json:"message,omitempty"`
+	Message  *string `json:"message,omitempty"`
+	UserName *string `json:"userName,omitempty"`
 }
 
 // UserPayload defines model for UserPayload.
@@ -23,6 +34,21 @@ type UserPayload struct {
 	Password *string `json:"password,omitempty"`
 	Username *string `json:"username,omitempty"`
 }
+
+// PutSyncsProgressParams defines parameters for PutSyncsProgress.
+type PutSyncsProgressParams struct {
+	XAuthUser string `json:"x-auth-user"`
+	XAuthKey  string `json:"x-auth-key"`
+}
+
+// GetUsersAuthParams defines parameters for GetUsersAuth.
+type GetUsersAuthParams struct {
+	XAuthUser string `json:"x-auth-user"`
+	XAuthKey  string `json:"x-auth-key"`
+}
+
+// PutSyncsProgressJSONRequestBody defines body for PutSyncsProgress for application/json ContentType.
+type PutSyncsProgressJSONRequestBody = DocumentPayload
 
 // PostUsersCreateJSONRequestBody defines body for PostUsersCreate for application/json ContentType.
 type PostUsersCreateJSONRequestBody = UserPayload
@@ -32,6 +58,12 @@ type ServerInterface interface {
 
 	// (GET /healthcheck)
 	GetHealthcheck(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /syncs/progress)
+	PutSyncsProgress(w http.ResponseWriter, r *http.Request, params PutSyncsProgressParams)
+
+	// (GET /users/auth)
+	GetUsersAuth(w http.ResponseWriter, r *http.Request, params GetUsersAuthParams)
 
 	// (POST /users/create)
 	PostUsersCreate(w http.ResponseWriter, r *http.Request)
@@ -43,6 +75,16 @@ type Unimplemented struct{}
 
 // (GET /healthcheck)
 func (_ Unimplemented) GetHealthcheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /syncs/progress)
+func (_ Unimplemented) PutSyncsProgress(w http.ResponseWriter, r *http.Request, params PutSyncsProgressParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /users/auth)
+func (_ Unimplemented) GetUsersAuth(w http.ResponseWriter, r *http.Request, params GetUsersAuthParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -65,6 +107,140 @@ func (siw *ServerInterfaceWrapper) GetHealthcheck(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthcheck(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutSyncsProgress operation middleware
+func (siw *ServerInterfaceWrapper) PutSyncsProgress(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutSyncsProgressParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "x-auth-user" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-user")]; found {
+		var XAuthUser string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-user", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-user", valueList[0], &XAuthUser, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-user", Err: err})
+			return
+		}
+
+		params.XAuthUser = XAuthUser
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-user is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-user", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "x-auth-key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-key")]; found {
+		var XAuthKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-key", valueList[0], &XAuthKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-key", Err: err})
+			return
+		}
+
+		params.XAuthKey = XAuthKey
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutSyncsProgress(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUsersAuth operation middleware
+func (siw *ServerInterfaceWrapper) GetUsersAuth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUsersAuthParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "x-auth-user" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-user")]; found {
+		var XAuthUser string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-user", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-user", valueList[0], &XAuthUser, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-user", Err: err})
+			return
+		}
+
+		params.XAuthUser = XAuthUser
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-user is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-user", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "x-auth-key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-key")]; found {
+		var XAuthKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-key", valueList[0], &XAuthKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-key", Err: err})
+			return
+		}
+
+		params.XAuthKey = XAuthKey
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUsersAuth(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -205,6 +381,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/healthcheck", wrapper.GetHealthcheck)
 	})
 	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/syncs/progress", wrapper.PutSyncsProgress)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/auth", wrapper.GetUsersAuth)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/users/create", wrapper.PostUsersCreate)
 	})
 
@@ -223,6 +405,59 @@ type GetHealthcheck200JSONResponse Response
 func (response GetHealthcheck200JSONResponse) VisitGetHealthcheckResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutSyncsProgressRequestObject struct {
+	Params PutSyncsProgressParams
+	Body   *PutSyncsProgressJSONRequestBody
+}
+
+type PutSyncsProgressResponseObject interface {
+	VisitPutSyncsProgressResponse(w http.ResponseWriter) error
+}
+
+type PutSyncsProgress200JSONResponse Response
+
+func (response PutSyncsProgress200JSONResponse) VisitPutSyncsProgressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PutSyncsProgress401JSONResponse Response
+
+func (response PutSyncsProgress401JSONResponse) VisitPutSyncsProgressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsersAuthRequestObject struct {
+	Params GetUsersAuthParams
+}
+
+type GetUsersAuthResponseObject interface {
+	VisitGetUsersAuthResponse(w http.ResponseWriter) error
+}
+
+type GetUsersAuth200JSONResponse Response
+
+func (response GetUsersAuth200JSONResponse) VisitGetUsersAuthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsersAuth401JSONResponse Response
+
+func (response GetUsersAuth401JSONResponse) VisitGetUsersAuthResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -258,6 +493,12 @@ type StrictServerInterface interface {
 
 	// (GET /healthcheck)
 	GetHealthcheck(ctx context.Context, request GetHealthcheckRequestObject) (GetHealthcheckResponseObject, error)
+
+	// (PUT /syncs/progress)
+	PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error)
+
+	// (GET /users/auth)
+	GetUsersAuth(ctx context.Context, request GetUsersAuthRequestObject) (GetUsersAuthResponseObject, error)
 
 	// (POST /users/create)
 	PostUsersCreate(ctx context.Context, request PostUsersCreateRequestObject) (PostUsersCreateResponseObject, error)
@@ -309,6 +550,65 @@ func (sh *strictHandler) GetHealthcheck(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthcheckResponseObject); ok {
 		if err := validResponse.VisitGetHealthcheckResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutSyncsProgress operation middleware
+func (sh *strictHandler) PutSyncsProgress(w http.ResponseWriter, r *http.Request, params PutSyncsProgressParams) {
+	var request PutSyncsProgressRequestObject
+
+	request.Params = params
+
+	var body PutSyncsProgressJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutSyncsProgress(ctx, request.(PutSyncsProgressRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutSyncsProgress")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutSyncsProgressResponseObject); ok {
+		if err := validResponse.VisitPutSyncsProgressResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetUsersAuth operation middleware
+func (sh *strictHandler) GetUsersAuth(w http.ResponseWriter, r *http.Request, params GetUsersAuthParams) {
+	var request GetUsersAuthRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUsersAuth(ctx, request.(GetUsersAuthRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUsersAuth")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetUsersAuthResponseObject); ok {
+		if err := validResponse.VisitGetUsersAuthResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

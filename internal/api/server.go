@@ -12,8 +12,39 @@ type Server struct {
 	DB  *sqlc.Queries
 }
 
-type ServerSpecInterface interface {
-	GetHealthcheck(ctx context.Context, request GetHealthcheckRequestObject) (GetHealthcheckResponseObject, error)
+func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error) {
+	return PutSyncsProgress200JSONResponse{}, nil
+}
+
+func (s *Server) GetUsersAuth(ctx context.Context, request GetUsersAuthRequestObject) (GetUsersAuthResponseObject, error) {
+	username := request.Params.XAuthUser
+	passwordHash := request.Params.XAuthKey
+	slog.Info("Authenticating user", "username", username, "password", passwordHash, "IP", ctx.Value("ip"))
+
+	user, err := s.DB.GetUser(ctx, username)
+	if err != nil {
+		slog.Error("Failed to get user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		message := "User does not exist"
+		return GetUsersAuth401JSONResponse{
+			Message:  &message,
+			UserName: &username,
+		}, nil
+	}
+
+	if user.Passwordhash != passwordHash {
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		message := "Authentication failed: Invalid password"
+		return GetUsersAuth401JSONResponse{
+			Message:  &message,
+			UserName: &username,
+		}, nil
+	}
+
+	message := "Authentication successful: User is authorized"
+	return GetUsersAuth200JSONResponse{
+		Message:  &message,
+		UserName: &username,
+	}, nil
 }
 
 func (s *Server) GetHealthcheck(ctx context.Context, request GetHealthcheckRequestObject) (GetHealthcheckResponseObject, error) {
