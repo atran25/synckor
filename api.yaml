@@ -129,7 +129,7 @@ components:
         device:
           type: string
           example: "kindle-pw4"
-        deviceId:
+        device_id:
           type: string
           example: "7e330d931b87f03326375cae"
     Response:

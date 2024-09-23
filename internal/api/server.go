@@ -13,6 +13,15 @@ type Server struct {
 }
 
 func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error) {
+	username := request.Params.XAuthUser
+	passwordHash := request.Params.XAuthKey
+	document := request.Body.Document
+	progress := request.Body.Progress
+	percentage := request.Body.Percentage
+	device := request.Body.Device
+	deviceID := request.Body.DeviceId
+	slog.Info("Received sync progress", "username", username, "password", passwordHash, "document", document, "progress", progress, "percentage", percentage, "device", device, "deviceID", deviceID, "IP", ctx.Value("ip"))
+
 	return PutSyncsProgress200JSONResponse{}, nil
 }
 

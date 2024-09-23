@@ -17,7 +17,7 @@ import (
 // DocumentPayload defines model for DocumentPayload.
 type DocumentPayload struct {
 	Device     *string  `json:"device,omitempty"`
-	DeviceId   *string  `json:"deviceId,omitempty"`
+	DeviceId   *string  `json:"device_id,omitempty"`
 	Document   *string  `json:"document,omitempty"`
 	Percentage *float32 `json:"percentage,omitempty"`
 	Progress   *string  `json:"progress,omitempty"`
