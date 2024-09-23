@@ -63,9 +63,11 @@ func main() {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			ip := request.RemoteAddr
 			httpMethod := request.Method
+			httpPath := request.URL.Path
 			ctx := context.WithValue(request.Context(), "ip", ip)
 			ctx = context.WithValue(ctx, "httpMethod", httpMethod)
-			slog.Info("Request received", "IP", ip, "Method", httpMethod)
+			ctx = context.WithValue(ctx, "httpPath", httpPath)
+			slog.Info("Request received", "IP", ip, "Method", httpMethod, "Path", httpPath)
 			handler.ServeHTTP(writer, request.WithContext(ctx))
 		})
 	})
