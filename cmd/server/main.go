@@ -9,6 +9,7 @@ import (
 	"github.com/atran25/synckor/internal/sqlc"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"log/slog"
 	"net/http"
 	"os"
@@ -57,8 +58,14 @@ func main() {
 	}
 	db := sqlc.New(databaseConnection)
 	slog.Info("Database connection established", "DB", db)
-	server := api.NewServer(cfg, db)
+	server := api.NewServer(cfg, databaseConnection)
 	r := chi.NewRouter()
+	swagger, err := api.GetSwagger()
+	swagger.Servers = nil
+	if err != nil {
+		panic(err)
+	}
+	r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
 	r.Use(func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			ip := request.RemoteAddr
@@ -75,8 +82,7 @@ func main() {
 	// Serve the openapi doc on /doc
 	workDir, _ := os.Getwd()
 	fs := http.FileServer(http.Dir(filepath.Join(workDir, "doc")))
-	r.Get("/doc", http.StripPrefix("/doc", fs).ServeHTTP)
-	//r.Handle("/doc/", http.StripPrefix("/doc", fs))
+	r.Get("/doc/*", http.StripPrefix("/doc", fs).ServeHTTP)
 	r.Get("/openapi.yaml", func(writer http.ResponseWriter, request *http.Request) {
 		http.ServeFile(writer, request, filepath.Join(workDir, "api.yaml"))
 	})
@@ -94,53 +100,4 @@ func main() {
 		return nil
 	})
 	slog.Error("Server error: ", s.ListenAndServe())
-
-	//r.Use(render.SetContentType(render.ContentTypeJSON))
-	//r.Get("/healthcheck", func(writer http.ResponseWriter, request *http.Request) {
-	//	writer.Write([]byte("Up and running"))
-	//})
-	//r.Route("/users", func(r chi.Router) {
-	//	r.Post("/auth", func(writer http.ResponseWriter, request *http.Request) {
-	//		writer.Write([]byte("Authenticating user"))
-	//	})
-	//	r.Post("/create", func(writer http.ResponseWriter, request *http.Request) {
-	//		var userPayload UserPayload
-	//		err := json.NewDecoder(request.Body).Decode(&userPayload)
-	//		slog.Info("", "userPayload", userPayload)
-	//		if err != nil {
-	//			slog.Error("decoding user payload: ", err)
-	//			//writer.WriteHeader(http.StatusPaymentRequired)
-	//			//writer.Write([]byte("Couldn't decode user payload"))
-	//			render.Render(writer, request, ErrRender(err))
-	//			return
-	//		}
-	//		ctx := context.Background()
-	//		user, err := db.GetUser(ctx, userPayload.Username)
-	//		if err == nil {
-	//			slog.Error("user already exists", err)
-	//			//writer.WriteHeader(http.StatusPaymentRequired)
-	//			//writer.Write([]byte("User already exists"))
-	//			render.Render(writer, request, ErrRender(errors.New("User already exists")))
-	//			return
-	//		}
-	//
-	//		user, err = db.CreateUser(ctx, sqlc.CreateUserParams{
-	//			Username:     userPayload.Username,
-	//			Passwordhash: userPayload.Password,
-	//			Isactive:     true,
-	//			Isadmin:      true,
-	//		})
-	//		if err != nil {
-	//			slog.Error("creating user: ", err)
-	//			writer.WriteHeader(http.StatusPaymentRequired)
-	//			writer.Write([]byte("Couldn't create user"))
-	//			return
-	//		}
-	//		slog.Info("User created: ", "User", user)
-	//		writer.WriteHeader(http.StatusCreated)
-	//		writer.Write([]byte("User created"))
-	//	})
-	//})
-	//slog.Info("Starting server on port 8050")
-	//http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), r)
 }

@@ -8,20 +8,17 @@ import (
 	"time"
 )
 
-type Document struct {
+type DocumentInformation struct {
 	Hash       string
 	Progress   string
 	Percentage float64
 	Device     string
-	Deviceid   string
+	DeviceID   string
 	Timestamp  time.Time
-	Userid     int64
+	Username   string
 }
 
-type User struct {
-	ID           int64
+type UserAccount struct {
 	Username     string
-	Passwordhash string
-	Isactive     bool
-	Isadmin      bool
+	PasswordHash string
 }

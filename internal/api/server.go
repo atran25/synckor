@@ -2,14 +2,16 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"github.com/atran25/synckor/internal/config"
-	"github.com/atran25/synckor/internal/sqlc"
+	"github.com/atran25/synckor/internal/service"
 	"log/slog"
 )
 
 type Server struct {
-	Cfg config.Config
-	DB  *sqlc.Queries
+	Cfg         config.Config
+	UserService service.UserServiceInterface
 }
 
 func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error) {
@@ -20,9 +22,46 @@ func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressR
 	percentage := request.Body.Percentage
 	device := request.Body.Device
 	deviceID := request.Body.DeviceId
-	slog.Info("Received sync progress", "username", username, "password", passwordHash, "document", document, "progress", progress, "percentage", percentage, "device", device, "deviceID", deviceID, "IP", ctx.Value("ip"))
 
-	return PutSyncsProgress200JSONResponse{}, nil
+	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
+	if err != nil {
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		message := "Failed to authenticate user"
+		return PutSyncsProgress401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+	if !status {
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		message := "Authentication failed: User is not authorized"
+		return PutSyncsProgress401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
+	if document == nil || progress == nil || percentage == nil || device == nil || deviceID == nil {
+		slog.Info("Invalid request", "username", username, "password", passwordHash, "document", document, "progress", progress, "percentage", percentage, "device", device, "deviceID", deviceID, "IP", ctx.Value("ip"))
+		message := "Invalid request"
+		return PutSyncsProgress401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
+	slog.Info("Received sync progress", "username", username, "password", passwordHash, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value("ip"))
+
+	err = s.UserService.UpdateSyncProgress(ctx, *percentage, username, *document, *progress, *device, *deviceID)
+	if err != nil {
+		slog.Error("Failed to update sync progress", "error", err, "username", username, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value("ip"))
+		message := "Failed to update sync progress"
+		return PutSyncsProgress401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
+	message := "Sync progress updated successfully"
+	return PutSyncsProgress200JSONResponse{
+		Message: &message,
+	}, nil
 }
 
 func (s *Server) GetUsersAuth(ctx context.Context, request GetUsersAuthRequestObject) (GetUsersAuthResponseObject, error) {
@@ -30,19 +69,19 @@ func (s *Server) GetUsersAuth(ctx context.Context, request GetUsersAuthRequestOb
 	passwordHash := request.Params.XAuthKey
 	slog.Info("Authenticating user", "username", username, "password", passwordHash, "IP", ctx.Value("ip"))
 
-	user, err := s.DB.GetUser(ctx, username)
+	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
 	if err != nil {
-		slog.Error("Failed to get user", "error", err, "username", username, "IP", ctx.Value("ip"))
-		message := "User does not exist"
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		message := "Failed to authenticate user"
 		return GetUsersAuth401JSONResponse{
 			Message:  &message,
 			UserName: &username,
 		}, nil
 	}
 
-	if user.Passwordhash != passwordHash {
+	if !status {
 		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
-		message := "Authentication failed: Invalid password"
+		message := "Authentication failed: User is not authorized"
 		return GetUsersAuth401JSONResponse{
 			Message:  &message,
 			UserName: &username,
@@ -68,6 +107,15 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 	password := request.Body.Password
 	registrationEnabled := s.Cfg.RegistrationEnabled
 
+	// Return early if username or password is nil
+	if username == nil || password == nil {
+		slog.Info("Invalid request", "username", username, "password", password, "IP", ctx.Value("ip"))
+		message := "Invalid request"
+		return PostUsersCreate402JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
 	// Return early if registration is disabled
 	if !registrationEnabled {
 		slog.Info("Registration is disabled", "username", *username, "IP", ctx.Value("ip"))
@@ -77,39 +125,32 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 		}, nil
 	}
 
-	// Check if user already exists
-	user, err := s.DB.GetUser(ctx, *username)
-	if err == nil {
-		slog.Info("User already exists", "User", user, "IP", ctx.Value("ip"))
-		message := "User already exists"
-		return PostUsersCreate402JSONResponse{
-			Message: &message,
-		}, nil
+	err := s.UserService.CreateUser(ctx, *username, *password)
+	if err != nil {
+		if errors.Is(err, service.ErrUserExists) {
+			slog.Info("User already exists", "username", *username, "IP", ctx.Value("ip"))
+			message := "User already exists"
+			return PostUsersCreate402JSONResponse{
+				Message: &message,
+			}, nil
+		} else {
+			slog.Error("Failed to create user", "error", err, "username", *username, "IP", ctx.Value("ip"))
+			message := "Failed to create user"
+			return PostUsersCreate402JSONResponse{
+				Message: &message,
+			}, nil
+		}
 	}
 
-	// Create user
-	user, err = s.DB.CreateUser(ctx, sqlc.CreateUserParams{
-		Username:     *username,
-		Passwordhash: *password,
-		Isactive:     true,
-		Isadmin:      false,
-	})
-	if err != nil {
-		slog.Error("Failed to create user", "error", err, "username", *username, "IP", ctx.Value("ip"))
-		message := "Failed to create user"
-		return PostUsersCreate402JSONResponse{
-			Message: &message,
-		}, nil
-	}
 	message := "User created successfully"
 	return PostUsersCreate201JSONResponse{
 		Message: &message,
 	}, nil
 }
 
-func NewServer(cfg config.Config, DB *sqlc.Queries) *Server {
+func NewServer(cfg config.Config, DB *sql.DB) *Server {
 	return &Server{
-		Cfg: cfg,
-		DB:  DB,
+		Cfg:         cfg,
+		UserService: service.NewUserService(DB),
 	}
 }

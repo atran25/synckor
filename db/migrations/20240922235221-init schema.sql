@@ -1,4 +1,5 @@
-CREATE TABLE IF NOT EXISTS "gorp_migrations" ("id" varchar(255) not null primary key, "applied_at" datetime);
+
+-- +migrate Up
 CREATE TABLE user_account (
     username TEXT PRIMARY KEY ,
     password_hash TEXT NOT NULL
@@ -14,3 +15,6 @@ CREATE TABLE document_information (
     FOREIGN KEY (username) REFERENCES user_account (username) ON DELETE CASCADE,
     PRIMARY KEY (hash, username)
 );
+-- +migrate Down
+DROP TABLE user_account;
+DROP TABLE document_information;

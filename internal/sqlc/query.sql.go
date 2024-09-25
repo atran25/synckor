@@ -7,50 +7,146 @@ package sqlc
 
 import (
 	"context"
+	"time"
 )
 
+const createDocument = `-- name: CreateDocument :one
+INSERT INTO document_information (hash, progress, percentage, device, device_id, timestamp, username) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING hash, progress, percentage, device, device_id, timestamp, username
+`
+
+type CreateDocumentParams struct {
+	Hash       string
+	Progress   string
+	Percentage float64
+	Device     string
+	DeviceID   string
+	Timestamp  time.Time
+	Username   string
+}
+
+func (q *Queries) CreateDocument(ctx context.Context, arg CreateDocumentParams) (DocumentInformation, error) {
+	row := q.db.QueryRowContext(ctx, createDocument,
+		arg.Hash,
+		arg.Progress,
+		arg.Percentage,
+		arg.Device,
+		arg.DeviceID,
+		arg.Timestamp,
+		arg.Username,
+	)
+	var i DocumentInformation
+	err := row.Scan(
+		&i.Hash,
+		&i.Progress,
+		&i.Percentage,
+		&i.Device,
+		&i.DeviceID,
+		&i.Timestamp,
+		&i.Username,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
-INSERT INTO user (username, passwordHash, isActive, isAdmin) VALUES (?, ?, ?, ?) RETURNING id, username, passwordhash, isactive, isadmin
+INSERT INTO user_account (username, password_hash) VALUES (?, ?) RETURNING username, password_hash
 `
 
 type CreateUserParams struct {
 	Username     string
-	Passwordhash string
-	Isactive     bool
-	Isadmin      bool
+	PasswordHash string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
-		arg.Username,
-		arg.Passwordhash,
-		arg.Isactive,
-		arg.Isadmin,
-	)
-	var i User
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (UserAccount, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.Username, arg.PasswordHash)
+	var i UserAccount
+	err := row.Scan(&i.Username, &i.PasswordHash)
+	return i, err
+}
+
+const getDocument = `-- name: GetDocument :one
+SELECT hash, progress, percentage, device, device_id, timestamp, username FROM document_information WHERE hash = ? and username = ?
+`
+
+type GetDocumentParams struct {
+	Hash     string
+	Username string
+}
+
+func (q *Queries) GetDocument(ctx context.Context, arg GetDocumentParams) (DocumentInformation, error) {
+	row := q.db.QueryRowContext(ctx, getDocument, arg.Hash, arg.Username)
+	var i DocumentInformation
 	err := row.Scan(
-		&i.ID,
+		&i.Hash,
+		&i.Progress,
+		&i.Percentage,
+		&i.Device,
+		&i.DeviceID,
+		&i.Timestamp,
 		&i.Username,
-		&i.Passwordhash,
-		&i.Isactive,
-		&i.Isadmin,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, passwordhash, isactive, isadmin FROM user WHERE username = ?
+SELECT username, password_hash FROM user_account WHERE username = ?
 `
 
-func (q *Queries) GetUser(ctx context.Context, username string) (User, error) {
+func (q *Queries) GetUser(ctx context.Context, username string) (UserAccount, error) {
 	row := q.db.QueryRowContext(ctx, getUser, username)
-	var i User
+	var i UserAccount
+	err := row.Scan(&i.Username, &i.PasswordHash)
+	return i, err
+}
+
+const getUserWithPassword = `-- name: GetUserWithPassword :one
+SELECT username, password_hash FROM user_account WHERE username = ? AND password_hash = ?
+`
+
+type GetUserWithPasswordParams struct {
+	Username     string
+	PasswordHash string
+}
+
+func (q *Queries) GetUserWithPassword(ctx context.Context, arg GetUserWithPasswordParams) (UserAccount, error) {
+	row := q.db.QueryRowContext(ctx, getUserWithPassword, arg.Username, arg.PasswordHash)
+	var i UserAccount
+	err := row.Scan(&i.Username, &i.PasswordHash)
+	return i, err
+}
+
+const updateDocument = `-- name: UpdateDocument :one
+UPDATE document_information SET progress = ?, percentage = ?, device = ?, device_id = ?, timestamp = ? WHERE hash = ? and username = ? RETURNING hash, progress, percentage, device, device_id, timestamp, username
+`
+
+type UpdateDocumentParams struct {
+	Progress   string
+	Percentage float64
+	Device     string
+	DeviceID   string
+	Timestamp  time.Time
+	Hash       string
+	Username   string
+}
+
+func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (DocumentInformation, error) {
+	row := q.db.QueryRowContext(ctx, updateDocument,
+		arg.Progress,
+		arg.Percentage,
+		arg.Device,
+		arg.DeviceID,
+		arg.Timestamp,
+		arg.Hash,
+		arg.Username,
+	)
+	var i DocumentInformation
 	err := row.Scan(
-		&i.ID,
+		&i.Hash,
+		&i.Progress,
+		&i.Percentage,
+		&i.Device,
+		&i.DeviceID,
+		&i.Timestamp,
 		&i.Username,
-		&i.Passwordhash,
-		&i.Isactive,
-		&i.Isadmin,
 	)
 	return i, err
 }

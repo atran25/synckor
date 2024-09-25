@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/atran25/synckor/internal/config"
-	"github.com/atran25/synckor/internal/sqlc"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/testutil"
 	migrate "github.com/rubenv/sql-migrate"
@@ -19,19 +18,9 @@ func TestGetHealthcheck(t *testing.T) {
 	dbConnection, err := sql.Open("sqlite", ":memory:")
 	require.Nil(t, err, "Starting in memory sqlite database")
 	defer dbConnection.Close()
-	db := sqlc.New(dbConnection)
-	_, err = migrate.Exec(dbConnection, "sqlite3", &migrate.FileMigrationSource{
-		Dir: "../../db/migrations",
-	}, migrate.Up)
-	assert.NoError(t, err, "Applying migrations")
 
-	cfg := config.Config{
-		Port:                8050,
-		RegistrationEnabled: true,
-		AdminUsername:       "test",
-		AdminPassword:       "test",
-	}
-	server := NewServer(cfg, db)
+	cfg := config.Config{}
+	server := NewServer(cfg, dbConnection)
 	r := chi.NewRouter()
 	_ = HandlerFromMux(NewStrictHandler(server, nil), r)
 
@@ -48,19 +37,13 @@ func TestPostUsersCreate(t *testing.T) {
 	dbConnection, err := sql.Open("sqlite", ":memory:")
 	require.Nil(t, err, "Starting in memory sqlite database")
 	defer dbConnection.Close()
-	db := sqlc.New(dbConnection)
 	_, err = migrate.Exec(dbConnection, "sqlite3", &migrate.FileMigrationSource{
 		Dir: "../../db/migrations",
 	}, migrate.Up)
 	assert.NoError(t, err, "Applying migrations")
 
-	cfg := config.Config{
-		Port:                8050,
-		RegistrationEnabled: true,
-		AdminUsername:       "test",
-		AdminPassword:       "test",
-	}
-	server := NewServer(cfg, db)
+	cfg := config.Config{}
+	server := NewServer(cfg, dbConnection)
 	r := chi.NewRouter()
 	_ = HandlerFromMux(NewStrictHandler(server, nil), r)
 
@@ -91,10 +74,7 @@ func TestPostUsersCreate(t *testing.T) {
 			Password: &password,
 		}
 
-		_, err := db.CreateUser(context.Background(), sqlc.CreateUserParams{
-			Username:     userName,
-			Passwordhash: password,
-		})
+		err := server.UserService.CreateUser(context.Background(), userName, password)
 		require.NoError(t, err, "Creating user")
 
 		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, r).Recorder

@@ -4,6 +4,9 @@ default: help
 help: ## Show help for each of the Makefile recipes.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+.PHONY: test
+test: ## Run the tests
+	go test -v ./...
 
 .PHONY: schema
 schema: ## Generate the schema for the database
@@ -24,5 +27,5 @@ migrate: ## Run the migrations
 	go run cmd/migrate/main.go
 
 .PHONY: run
-run: schema check tools migrate ## Run the application
+run: migrate schema tools check ## Run the application
 	go run cmd/server/main.go
