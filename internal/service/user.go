@@ -20,6 +20,32 @@ type UserServiceInterface interface {
 	CreateUser(ctx context.Context, username, password string) error
 	AuthenticateUser(ctx context.Context, username, password string) (bool, error)
 	UpdateSyncProgress(ctx context.Context, percentage float32, username, document, progress, device, deviceID string) error
+	GetDocumentSyncProgress(ctx context.Context, username, documentHash string) (sqlc.DocumentInformation, error)
+}
+
+func (us *UserService) GetDocumentSyncProgress(ctx context.Context, username, documentHash string) (sqlc.DocumentInformation, error) {
+	tx, err := us.DB.Begin()
+	if err != nil {
+		return sqlc.DocumentInformation{}, err
+	}
+	defer tx.Rollback()
+	qtx := us.Qtx.WithTx(tx)
+
+	documentInformation, err := qtx.GetDocument(ctx, sqlc.GetDocumentParams{
+		Hash:     documentHash,
+		Username: username,
+	})
+	if err != nil {
+		return sqlc.DocumentInformation{}, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return sqlc.DocumentInformation{}, err
+	}
+
+	slog.Info("Retrieved document information", "document", documentInformation)
+	return documentInformation, nil
 }
 
 func (us *UserService) UpdateSyncProgress(ctx context.Context, percentage float32, username, document, progress, device, deviceID string) error {

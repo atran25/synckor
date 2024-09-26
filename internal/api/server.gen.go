@@ -30,6 +30,15 @@ type DocumentPayload struct {
 	Progress   *string  `json:"progress,omitempty"`
 }
 
+// GetSyncProgressResponse defines model for GetSyncProgressResponse.
+type GetSyncProgressResponse struct {
+	Device     *string  `json:"device,omitempty"`
+	DeviceId   *string  `json:"device_id,omitempty"`
+	Document   *string  `json:"document,omitempty"`
+	Percentage *float32 `json:"percentage,omitempty"`
+	Progress   *string  `json:"progress,omitempty"`
+}
+
 // Response defines model for Response.
 type Response struct {
 	Message  *string `json:"message,omitempty"`
@@ -44,6 +53,12 @@ type UserPayload struct {
 
 // PutSyncsProgressParams defines parameters for PutSyncsProgress.
 type PutSyncsProgressParams struct {
+	XAuthUser string `json:"x-auth-user"`
+	XAuthKey  string `json:"x-auth-key"`
+}
+
+// GetSyncsProgressDocumentHashParams defines parameters for GetSyncsProgressDocumentHash.
+type GetSyncsProgressDocumentHashParams struct {
 	XAuthUser string `json:"x-auth-user"`
 	XAuthKey  string `json:"x-auth-key"`
 }
@@ -69,6 +84,9 @@ type ServerInterface interface {
 	// (PUT /syncs/progress)
 	PutSyncsProgress(w http.ResponseWriter, r *http.Request, params PutSyncsProgressParams)
 
+	// (GET /syncs/progress/{documentHash})
+	GetSyncsProgressDocumentHash(w http.ResponseWriter, r *http.Request, documentHash string, params GetSyncsProgressDocumentHashParams)
+
 	// (GET /users/auth)
 	GetUsersAuth(w http.ResponseWriter, r *http.Request, params GetUsersAuthParams)
 
@@ -87,6 +105,11 @@ func (_ Unimplemented) GetHealthcheck(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /syncs/progress)
 func (_ Unimplemented) PutSyncsProgress(w http.ResponseWriter, r *http.Request, params PutSyncsProgressParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /syncs/progress/{documentHash})
+func (_ Unimplemented) GetSyncsProgressDocumentHash(w http.ResponseWriter, r *http.Request, documentHash string, params GetSyncsProgressDocumentHashParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -181,6 +204,82 @@ func (siw *ServerInterfaceWrapper) PutSyncsProgress(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutSyncsProgress(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSyncsProgressDocumentHash operation middleware
+func (siw *ServerInterfaceWrapper) GetSyncsProgressDocumentHash(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "documentHash" -------------
+	var documentHash string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentHash", chi.URLParam(r, "documentHash"), &documentHash, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: false})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentHash", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSyncsProgressDocumentHashParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "x-auth-user" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-user")]; found {
+		var XAuthUser string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-user", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-user", valueList[0], &XAuthUser, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-user", Err: err})
+			return
+		}
+
+		params.XAuthUser = XAuthUser
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-user is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-user", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "x-auth-key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("x-auth-key")]; found {
+		var XAuthKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "x-auth-key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "x-auth-key", valueList[0], &XAuthKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "x-auth-key", Err: err})
+			return
+		}
+
+		params.XAuthKey = XAuthKey
+
+	} else {
+		err := fmt.Errorf("Header parameter x-auth-key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "x-auth-key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSyncsProgressDocumentHash(w, r, documentHash, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -391,6 +490,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/syncs/progress", wrapper.PutSyncsProgress)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/syncs/progress/{documentHash}", wrapper.GetSyncsProgressDocumentHash)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/users/auth", wrapper.GetUsersAuth)
 	})
 	r.Group(func(r chi.Router) {
@@ -439,6 +541,42 @@ type PutSyncsProgress401JSONResponse Response
 func (response PutSyncsProgress401JSONResponse) VisitPutSyncsProgressResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetSyncsProgressDocumentHashRequestObject struct {
+	DocumentHash string `json:"documentHash,omitempty"`
+	Params       GetSyncsProgressDocumentHashParams
+}
+
+type GetSyncsProgressDocumentHashResponseObject interface {
+	VisitGetSyncsProgressDocumentHashResponse(w http.ResponseWriter) error
+}
+
+type GetSyncsProgressDocumentHash200JSONResponse GetSyncProgressResponse
+
+func (response GetSyncsProgressDocumentHash200JSONResponse) VisitGetSyncsProgressDocumentHashResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetSyncsProgressDocumentHash401JSONResponse Response
+
+func (response GetSyncsProgressDocumentHash401JSONResponse) VisitGetSyncsProgressDocumentHashResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetSyncsProgressDocumentHash502JSONResponse Response
+
+func (response GetSyncsProgressDocumentHash502JSONResponse) VisitGetSyncsProgressDocumentHashResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -503,6 +641,9 @@ type StrictServerInterface interface {
 
 	// (PUT /syncs/progress)
 	PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error)
+
+	// (GET /syncs/progress/{documentHash})
+	GetSyncsProgressDocumentHash(ctx context.Context, request GetSyncsProgressDocumentHashRequestObject) (GetSyncsProgressDocumentHashResponseObject, error)
 
 	// (GET /users/auth)
 	GetUsersAuth(ctx context.Context, request GetUsersAuthRequestObject) (GetUsersAuthResponseObject, error)
@@ -597,6 +738,33 @@ func (sh *strictHandler) PutSyncsProgress(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetSyncsProgressDocumentHash operation middleware
+func (sh *strictHandler) GetSyncsProgressDocumentHash(w http.ResponseWriter, r *http.Request, documentHash string, params GetSyncsProgressDocumentHashParams) {
+	var request GetSyncsProgressDocumentHashRequestObject
+
+	request.DocumentHash = documentHash
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSyncsProgressDocumentHash(ctx, request.(GetSyncsProgressDocumentHashRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSyncsProgressDocumentHash")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSyncsProgressDocumentHashResponseObject); ok {
+		if err := validResponse.VisitGetSyncsProgressDocumentHashResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetUsersAuth operation middleware
 func (sh *strictHandler) GetUsersAuth(w http.ResponseWriter, r *http.Request, params GetUsersAuthParams) {
 	var request GetUsersAuthRequestObject
@@ -657,19 +825,21 @@ func (sh *strictHandler) PostUsersCreate(w http.ResponseWriter, r *http.Request)
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"HjwK3RAAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

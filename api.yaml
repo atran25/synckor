@@ -75,16 +75,16 @@ paths:
             in: header
             required: true
             schema:
-                type: string
-                example: "username"
-                description: Username of the user
+              type: string
+              example: "username"
+              description: Username of the user
           - name: x-auth-key
             in: header
             required: true
             schema:
-                type: string
-                example: "password"
-                description: Password hash of the user
+              type: string
+              example: "password"
+              description: Password hash of the user
         requestBody:
           content:
             application/json:
@@ -103,6 +103,47 @@ paths:
                 application/json:
                   schema:
                     $ref: '#/components/schemas/Response'
+  /syncs/progress/{documentHash}:
+    get:
+      parameters:
+        - in: path
+          name: documentHash
+          schema:
+            type: string
+            example: "7e330d931b87f03326375cae"
+        - name: x-auth-user
+          in: header
+          required: true
+          schema:
+            type: string
+            example: "username"
+            description: Username of the user
+        - name: x-auth-key
+          in: header
+          required: true
+          schema:
+            type: string
+            example: "password"
+            description: Password hash of the user
+      responses:
+        '200':
+          description: Sync progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSyncProgressResponse'
+        '401':
+          description: Sync progress retrieval failed (inactive user, wrong password, etc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '502':
+          description: Sync progress retrieval failed (document not found, etc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
 components:
   schemas:
     UserPayload:
@@ -132,6 +173,24 @@ components:
         device_id:
           type: string
           example: "7e330d931b87f03326375cae"
+    GetSyncProgressResponse:
+        type: object
+        properties:
+          document:
+            type: string
+            example: "7e330d931b87f03326375cae"
+          progress:
+            type: string
+            example: "0.5"
+          percentage:
+            type: number
+            example: 0.5
+          device:
+            type: string
+            example: "kindle-pw4"
+          device_id:
+            type: string
+            example: "7e330d931b87f03326375cae"
     Response:
         type: object
         properties:

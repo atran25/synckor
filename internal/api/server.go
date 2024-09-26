@@ -14,6 +14,47 @@ type Server struct {
 	UserService service.UserServiceInterface
 }
 
+func (s *Server) GetSyncsProgressDocumentHash(ctx context.Context, request GetSyncsProgressDocumentHashRequestObject) (GetSyncsProgressDocumentHashResponseObject, error) {
+	documentHash := request.DocumentHash
+	username := request.Params.XAuthUser
+	passwordHash := request.Params.XAuthKey
+
+	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
+	if err != nil {
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		message := "Failed to authenticate user"
+		return GetSyncsProgressDocumentHash401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+	if !status {
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		message := "Authentication failed: User is not authorized"
+		return GetSyncsProgressDocumentHash401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
+	documentInformation, err := s.UserService.GetDocumentSyncProgress(ctx, username, documentHash)
+	if err != nil {
+		slog.Error("Failed to get document sync progress", "error", err, "username", username, "documentHash", documentHash, "IP", ctx.Value("ip"))
+		message := "Failed to get document sync progress"
+		return GetSyncsProgressDocumentHash401JSONResponse{
+			Message: &message,
+		}, nil
+	}
+
+	// Workaround for converting float64 to *float32
+	percentageConvert := float32(documentInformation.Percentage)
+	return GetSyncsProgressDocumentHash200JSONResponse{
+		Document:   &documentInformation.Hash,
+		Progress:   &documentInformation.Progress,
+		Percentage: &percentageConvert,
+		Device:     &documentInformation.Device,
+		DeviceId:   &documentInformation.DeviceID,
+	}, nil
+}
+
 func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressRequestObject) (PutSyncsProgressResponseObject, error) {
 	username := request.Params.XAuthUser
 	passwordHash := request.Params.XAuthKey
