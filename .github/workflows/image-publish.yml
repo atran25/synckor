@@ -25,16 +25,19 @@ jobs:
         with:
           go-version: '1.22.x'
 
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61
+
       - name: install dependencies
         run: go mod download
 
       - name: Run tests
         run: go test -v ./...
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.61
+      - name: Run linter
+        run: golangci-lint run
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
