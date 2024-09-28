@@ -8,6 +8,10 @@ help: ## Show help for each of the Makefile recipes.
 test: ## Run the tests
 	go test -v ./...
 
+.PHONY: lint
+lint: ## Run the linters
+	golangci-lint run
+
 .PHONY: schema
 schema: ## Generate the schema for the database
 	sqlite3 db/sqlite/db.sqlite '.schema' > db/sqlite/schema.sql
@@ -29,3 +33,11 @@ migrate: ## Run the migrations
 .PHONY: run
 run: migrate schema tools check ## Run the application
 	go run cmd/server/main.go
+
+.PHONY: docker-build
+docker-build: ## Build the docker image
+	docker build -t synckor .
+
+.PHONY: docker-run
+docker-run: ## Run the docker image
+	docker run -it --network host -p 8050:8050 -e PORT=8050 -e REGISTRATION_ENABLED=True -e LITESTREAM_ACCESS_KEY_ID=minioadmin -e LITESTREAM_SECRET_ACCESS_KEY=minioadmin -e REPLICA_URL=s3://synckor-bkt.localhost:9000/db.sqlite synckor

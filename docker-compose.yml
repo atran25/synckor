@@ -1,0 +1,15 @@
+name: synckor
+services:
+  synckor:
+    stdin_open: true
+    tty: true
+    network_mode: host
+    ports:
+      - 8050:8050
+    environment:
+      - PORT=8050
+      - REGISTRATION_ENABLED=True
+      - LITESTREAM_ACCESS_KEY_ID=minioadmin
+      - LITESTREAM_SECRET_ACCESS_KEY=minioadmin
+      - REPLICA_URL=s3://synckor-bkt-test.localhost:9000/db.sqlite
+    image: synckor

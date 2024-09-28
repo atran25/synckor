@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+output:
+  formats:
+    - format: colored-line-number
+      path: stderr
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+issues:
+  exclude:
+    - "Error return value of `tx.Rollback` is not checked"

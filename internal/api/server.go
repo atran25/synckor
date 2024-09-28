@@ -9,6 +9,10 @@ import (
 	"log/slog"
 )
 
+type IP struct{}
+type HttpMethod struct{}
+type HttpPath struct{}
+
 type Server struct {
 	Cfg         config.Config
 	UserService service.UserServiceInterface
@@ -21,14 +25,14 @@ func (s *Server) GetSyncsProgressDocumentHash(ctx context.Context, request GetSy
 
 	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
 	if err != nil {
-		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value(IP{}))
 		message := "Failed to authenticate user"
 		return GetSyncsProgressDocumentHash401JSONResponse{
 			Message: &message,
 		}, nil
 	}
 	if !status {
-		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value(IP{}))
 		message := "Authentication failed: User is not authorized"
 		return GetSyncsProgressDocumentHash401JSONResponse{
 			Message: &message,
@@ -37,7 +41,7 @@ func (s *Server) GetSyncsProgressDocumentHash(ctx context.Context, request GetSy
 
 	documentInformation, err := s.UserService.GetDocumentSyncProgress(ctx, username, documentHash)
 	if err != nil {
-		slog.Error("Failed to get document sync progress", "error", err, "username", username, "documentHash", documentHash, "IP", ctx.Value("ip"))
+		slog.Error("Failed to get document sync progress", "error", err, "username", username, "documentHash", documentHash, "IP", ctx.Value(IP{}))
 		message := "Failed to get document sync progress"
 		return GetSyncsProgressDocumentHash401JSONResponse{
 			Message: &message,
@@ -66,14 +70,14 @@ func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressR
 
 	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
 	if err != nil {
-		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value(IP{}))
 		message := "Failed to authenticate user"
 		return PutSyncsProgress401JSONResponse{
 			Message: &message,
 		}, nil
 	}
 	if !status {
-		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value(IP{}))
 		message := "Authentication failed: User is not authorized"
 		return PutSyncsProgress401JSONResponse{
 			Message: &message,
@@ -81,18 +85,18 @@ func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressR
 	}
 
 	if document == nil || progress == nil || percentage == nil || device == nil || deviceID == nil {
-		slog.Info("Invalid request", "username", username, "password", passwordHash, "document", document, "progress", progress, "percentage", percentage, "device", device, "deviceID", deviceID, "IP", ctx.Value("ip"))
+		slog.Info("Invalid request", "username", username, "password", passwordHash, "document", document, "progress", progress, "percentage", percentage, "device", device, "deviceID", deviceID, "IP", ctx.Value(IP{}))
 		message := "Invalid request"
 		return PutSyncsProgress401JSONResponse{
 			Message: &message,
 		}, nil
 	}
 
-	slog.Info("Received sync progress", "username", username, "password", passwordHash, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value("ip"))
+	slog.Info("Received sync progress", "username", username, "password", passwordHash, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value(IP{}))
 
 	err = s.UserService.UpdateSyncProgress(ctx, *percentage, username, *document, *progress, *device, *deviceID)
 	if err != nil {
-		slog.Error("Failed to update sync progress", "error", err, "username", username, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value("ip"))
+		slog.Error("Failed to update sync progress", "error", err, "username", username, "document", *document, "progress", *progress, "percentage", *percentage, "device", *device, "deviceID", *deviceID, "IP", ctx.Value(IP{}))
 		message := "Failed to update sync progress"
 		return PutSyncsProgress401JSONResponse{
 			Message: &message,
@@ -108,11 +112,11 @@ func (s *Server) PutSyncsProgress(ctx context.Context, request PutSyncsProgressR
 func (s *Server) GetUsersAuth(ctx context.Context, request GetUsersAuthRequestObject) (GetUsersAuthResponseObject, error) {
 	username := request.Params.XAuthUser
 	passwordHash := request.Params.XAuthKey
-	slog.Info("Authenticating user", "username", username, "password", passwordHash, "IP", ctx.Value("ip"))
+	slog.Info("Authenticating user", "username", username, "password", passwordHash, "IP", ctx.Value(IP{}))
 
 	status, err := s.UserService.AuthenticateUser(ctx, username, passwordHash)
 	if err != nil {
-		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value("ip"))
+		slog.Error("Failed to authenticate user", "error", err, "username", username, "IP", ctx.Value(IP{}))
 		message := "Failed to authenticate user"
 		return GetUsersAuth401JSONResponse{
 			Message:  &message,
@@ -121,7 +125,7 @@ func (s *Server) GetUsersAuth(ctx context.Context, request GetUsersAuthRequestOb
 	}
 
 	if !status {
-		slog.Info("Authentication failed", "username", username, "IP", ctx.Value("ip"))
+		slog.Info("Authentication failed", "username", username, "IP", ctx.Value(IP{}))
 		message := "Authentication failed: User is not authorized"
 		return GetUsersAuth401JSONResponse{
 			Message:  &message,
@@ -150,7 +154,7 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 
 	// Return early if username or password is nil
 	if username == nil || password == nil {
-		slog.Info("Invalid request", "username", username, "password", password, "IP", ctx.Value("ip"))
+		slog.Info("Invalid request", "username", username, "password", password, "IP", ctx.Value(IP{}))
 		message := "Invalid request"
 		return PostUsersCreate402JSONResponse{
 			Message: &message,
@@ -159,7 +163,7 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 
 	// Return early if registration is disabled
 	if !registrationEnabled {
-		slog.Info("Registration is disabled", "username", *username, "IP", ctx.Value("ip"))
+		slog.Info("Registration is disabled", "username", *username, "IP", ctx.Value(IP{}))
 		message := "Registration is disabled"
 		return PostUsersCreate402JSONResponse{
 			Message: &message,
@@ -169,13 +173,13 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 	err := s.UserService.CreateUser(ctx, *username, *password)
 	if err != nil {
 		if errors.Is(err, service.ErrUserExists) {
-			slog.Info("User already exists", "username", *username, "IP", ctx.Value("ip"))
+			slog.Info("User already exists", "username", *username, "IP", ctx.Value(IP{}))
 			message := "User already exists"
 			return PostUsersCreate402JSONResponse{
 				Message: &message,
 			}, nil
 		} else {
-			slog.Error("Failed to create user", "error", err, "username", *username, "IP", ctx.Value("ip"))
+			slog.Error("Failed to create user", "error", err, "username", *username, "IP", ctx.Value(IP{}))
 			message := "Failed to create user"
 			return PostUsersCreate402JSONResponse{
 				Message: &message,

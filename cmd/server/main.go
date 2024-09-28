@@ -8,43 +8,12 @@ import (
 	"github.com/atran25/synckor/internal/database"
 	"github.com/atran25/synckor/internal/sqlc"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 )
-
-type UserPayload struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type ErrResponse struct {
-	Err            error `json:"-"` // low-level runtime error
-	HTTPStatusCode int   `json:"-"` // http response status code
-
-	StatusText string `json:"status"`          // user-level status message
-	AppCode    int64  `json:"code,omitempty"`  // application-specific error code
-	ErrorText  string `json:"error,omitempty"` // application-level error message, for debugging
-	Message    string `json:"message"`
-}
-
-func (e *ErrResponse) Render(w http.ResponseWriter, r *http.Request) error {
-	render.Status(r, e.HTTPStatusCode)
-	return nil
-}
-
-func ErrRender(err error) render.Renderer {
-	return &ErrResponse{
-		Err:            err,
-		HTTPStatusCode: 402,
-		StatusText:     "Error rendering response.",
-		ErrorText:      err.Error(),
-		Message:        "This is it",
-	}
-}
 
 func main() {
 	cfg, err := config.LoadConfig()
@@ -71,9 +40,9 @@ func main() {
 			ip := request.RemoteAddr
 			httpMethod := request.Method
 			httpPath := request.URL.Path
-			ctx := context.WithValue(request.Context(), "ip", ip)
-			ctx = context.WithValue(ctx, "httpMethod", httpMethod)
-			ctx = context.WithValue(ctx, "httpPath", httpPath)
+			ctx := context.WithValue(request.Context(), api.IP{}, ip)
+			ctx = context.WithValue(ctx, api.HttpMethod{}, httpMethod)
+			ctx = context.WithValue(ctx, api.HttpPath{}, httpPath)
 			slog.Info("Request received", "IP", ip, "Method", httpMethod, "Path", httpPath)
 			handler.ServeHTTP(writer, request.WithContext(ctx))
 		})
@@ -95,9 +64,12 @@ func main() {
 	}
 
 	// Get all routes and their middlewares
-	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	err = chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
 		fmt.Printf("[%s]: '%s' has %d middlewares\n", method, route, len(middlewares))
 		return nil
 	})
+	if err != nil {
+		panic(err)
+	}
 	slog.Error("Server error: ", s.ListenAndServe())
 }
