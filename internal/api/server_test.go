@@ -1,11 +1,9 @@
 package api
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"github.com/atran25/synckor/internal/config"
-	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/testutil"
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/stretchr/testify/assert"
@@ -20,11 +18,10 @@ func TestGetHealthcheck(t *testing.T) {
 	defer dbConnection.Close()
 
 	cfg := config.Config{}
-	server := NewServer(cfg, dbConnection)
-	r := chi.NewRouter()
-	_ = HandlerFromMux(NewStrictHandler(server, nil), r)
+	server, err := NewServer(cfg, dbConnection)
+	require.NoError(t, err, "Creating server")
 
-	httpCall := testutil.NewRequest().Get("/healthcheck").GoWithHTTPHandler(t, r).Recorder
+	httpCall := testutil.NewRequest().Get("/healthcheck").GoWithHTTPHandler(t, server).Recorder
 	assert.Equal(t, 200, httpCall.Code)
 
 	var response Response
@@ -42,13 +39,12 @@ func TestPostUsersCreate(t *testing.T) {
 	}, migrate.Up)
 	assert.NoError(t, err, "Applying migrations")
 
-	cfg := config.Config{}
-	server := NewServer(cfg, dbConnection)
-	r := chi.NewRouter()
-	_ = HandlerFromMux(NewStrictHandler(server, nil), r)
-
 	t.Run("Registration is disabled", func(t *testing.T) {
-		server.Cfg.RegistrationEnabled = false
+		cfg := config.Config{
+			RegistrationEnabled: false,
+		}
+		server, err := NewServer(cfg, dbConnection)
+		require.NoError(t, err, "Creating server")
 		userName := "disabled"
 		password := "disabled"
 		request := PostUsersCreateJSONRequestBody{
@@ -56,17 +52,21 @@ func TestPostUsersCreate(t *testing.T) {
 			Password: &password,
 		}
 
-		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, r).Recorder
+		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, server).Recorder
 		assert.Equal(t, 402, httpCall.Code)
 
 		var response PostUsersCreate402JSONResponse
-		err := json.NewDecoder(httpCall.Body).Decode(&response)
+		err = json.NewDecoder(httpCall.Body).Decode(&response)
 		require.NoError(t, err, "Decoding response")
 		assert.Equal(t, "Registration is disabled", *response.Message)
 	})
 
 	t.Run("User already exists", func(t *testing.T) {
-		server.Cfg.RegistrationEnabled = true
+		cfg := config.Config{
+			RegistrationEnabled: true,
+		}
+		server, err := NewServer(cfg, dbConnection)
+		require.NoError(t, err, "Creating server")
 		userName := "test"
 		password := "test"
 		request := PostUsersCreateJSONRequestBody{
@@ -74,10 +74,10 @@ func TestPostUsersCreate(t *testing.T) {
 			Password: &password,
 		}
 
-		err := server.UserService.CreateUser(context.Background(), userName, password)
-		require.NoError(t, err, "Creating user")
+		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, server).Recorder
+		assert.Equal(t, 201, httpCall.Code)
 
-		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, r).Recorder
+		httpCall = testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, server).Recorder
 		assert.Equal(t, 402, httpCall.Code)
 
 		var response PostUsersCreate402JSONResponse
@@ -87,7 +87,11 @@ func TestPostUsersCreate(t *testing.T) {
 	})
 
 	t.Run("User created successfully", func(t *testing.T) {
-		server.Cfg.RegistrationEnabled = true
+		cfg := config.Config{
+			RegistrationEnabled: true,
+		}
+		server, err := NewServer(cfg, dbConnection)
+		require.NoError(t, err, "Creating server")
 		userName := "new"
 		password := "new"
 		request := PostUsersCreateJSONRequestBody{
@@ -95,11 +99,11 @@ func TestPostUsersCreate(t *testing.T) {
 			Password: &password,
 		}
 
-		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, r).Recorder
+		httpCall := testutil.NewRequest().Post("/users/create").WithJsonBody(request).GoWithHTTPHandler(t, server).Recorder
 		assert.Equal(t, 201, httpCall.Code)
 
 		var response PostUsersCreate201JSONResponse
-		err := json.NewDecoder(httpCall.Body).Decode(&response)
+		err = json.NewDecoder(httpCall.Body).Decode(&response)
 		require.NoError(t, err, "Decoding response")
 		assert.Equal(t, "User created successfully", *response.Message)
 	})

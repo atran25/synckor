@@ -6,7 +6,10 @@ import (
 	"errors"
 	"github.com/atran25/synckor/internal/config"
 	"github.com/atran25/synckor/internal/service"
+	"github.com/go-chi/chi/v5"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"log/slog"
+	"net/http"
 )
 
 type IP struct{}
@@ -193,9 +196,49 @@ func (s *Server) PostUsersCreate(ctx context.Context, request PostUsersCreateReq
 	}, nil
 }
 
-func NewServer(cfg config.Config, DB *sql.DB) *Server {
-	return &Server{
+func NewServer(cfg config.Config, DB *sql.DB) (http.Handler, error) {
+	server := &Server{
 		Cfg:         cfg,
 		UserService: service.NewUserService(DB),
 	}
+	r := chi.NewRouter()
+
+	// Add request validator middleware
+	swagger, err := GetSwagger()
+	if err != nil {
+		return nil, err
+	}
+	swagger.Servers = nil
+	r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
+	r.Use(RequestLogger)
+
+	r, err = SetupRoutes(r)
+	if err != nil {
+		return nil, err
+	}
+
+	h := HandlerFromMux(NewStrictHandler(server, nil), r)
+
+	err = chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		slog.Debug("Route found", "method", method, "route", route, "middlewares", len(middlewares))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return h, nil
+}
+
+func RequestLogger(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ip := request.RemoteAddr
+		httpMethod := request.Method
+		httpPath := request.URL.Path
+		ctx := context.WithValue(request.Context(), IP{}, ip)
+		ctx = context.WithValue(ctx, HttpMethod{}, httpMethod)
+		ctx = context.WithValue(ctx, HttpPath{}, httpPath)
+		slog.Info("Request received", "IP", ip, "Method", httpMethod, "Path", httpPath)
+		handler.ServeHTTP(writer, request.WithContext(ctx))
+	})
 }

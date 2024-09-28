@@ -2,74 +2,83 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/atran25/synckor/internal/api"
 	"github.com/atran25/synckor/internal/config"
 	"github.com/atran25/synckor/internal/database"
-	"github.com/atran25/synckor/internal/sqlc"
-	"github.com/go-chi/chi/v5"
-	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
+	"os/signal"
+	"sync"
+	"time"
 )
 
-func main() {
+func run(
+	ctx context.Context,
+	args []string,
+	getenv func(string) string,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+) error {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
+	defer cancel()
+
+	// Load Config struct from .env file/environment variables
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	slog.Info("Config loaded: ", "Config", cfg)
+
+	// Get a connection to the database
 	databaseConnection, err := database.GetConnection()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	db := sqlc.New(databaseConnection)
-	slog.Info("Database connection established", "DB", db)
-	server := api.NewServer(cfg, databaseConnection)
-	r := chi.NewRouter()
-	swagger, err := api.GetSwagger()
-	swagger.Servers = nil
+
+	h, err := api.NewServer(cfg, databaseConnection)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
-	r.Use(func(handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			ip := request.RemoteAddr
-			httpMethod := request.Method
-			httpPath := request.URL.Path
-			ctx := context.WithValue(request.Context(), api.IP{}, ip)
-			ctx = context.WithValue(ctx, api.HttpMethod{}, httpMethod)
-			ctx = context.WithValue(ctx, api.HttpPath{}, httpPath)
-			slog.Info("Request received", "IP", ip, "Method", httpMethod, "Path", httpPath)
-			handler.ServeHTTP(writer, request.WithContext(ctx))
-		})
-	})
 
-	// Serve the openapi doc on /doc
-	workDir, _ := os.Getwd()
-	fs := http.FileServer(http.Dir(filepath.Join(workDir, "doc")))
-	r.Get("/doc/*", http.StripPrefix("/doc", fs).ServeHTTP)
-	r.Get("/openapi.yaml", func(writer http.ResponseWriter, request *http.Request) {
-		http.ServeFile(writer, request, filepath.Join(workDir, "api.yaml"))
-	})
-
-	h := api.HandlerFromMux(api.NewStrictHandler(server, nil), r)
-	slog.Info(fmt.Sprintf("Starting server on port %d", cfg.Port))
 	s := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: h,
 	}
 
-	// Get all routes and their middlewares
-	err = chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		fmt.Printf("[%s]: '%s' has %d middlewares\n", method, route, len(middlewares))
-		return nil
-	})
-	if err != nil {
-		panic(err)
+	go func() {
+		slog.Info("Server starting on", "Server Address", s.Addr)
+		if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("Server failed to start", "Error", err)
+		}
+	}()
+
+	// Graceful shutdown
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		shutdownCtx := context.Background()
+		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		defer cancel()
+		if err := s.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Server failed to shutdown", "Error", err)
+		}
+	}()
+	wg.Wait()
+
+	return nil
+}
+
+func main() {
+	ctx := context.Background()
+	if err := run(ctx, os.Args, os.Getenv, os.Stdin, os.Stdout, os.Stderr); err != nil {
+		slog.Error("Error running server", "Error", err)
+		os.Exit(1)
 	}
-	slog.Error("Server error: ", s.ListenAndServe())
+	slog.Info("Server stopped gracefully")
+	os.Exit(0)
 }
