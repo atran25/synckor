@@ -5,8 +5,6 @@ info:
 servers:
     - url: http://localhost:8050
       description: Development server
-#    - url:
-#      description: Production server
 
 paths:
   /healthcheck:
@@ -14,6 +12,36 @@ paths:
       responses:
         '200':
           description: Server is up & running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /doc:
+    get:
+      responses:
+        '200':
+          description: OpenAPI schema
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Any unsuccessful response (Server is down, file doesn't exist, etc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Response'
+  /openapi.yaml:
+    get:
+      responses:
+        '200':
+          description: OpenAPI schema
+          content:
+            application/yaml:
+                schema:
+                    type: string
+        '400':
+          description: Any unsuccessful response (Server is down, file doesn't exist, etc)
           content:
             application/json:
               schema:

@@ -10,6 +10,8 @@ import (
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 type IP struct{}
@@ -19,6 +21,38 @@ type HttpPath struct{}
 type Server struct {
 	Cfg         config.Config
 	UserService service.UserServiceInterface
+}
+
+func (s *Server) GetDoc(ctx context.Context, request GetDocRequestObject) (GetDocResponseObject, error) {
+	workDir, _ := os.Getwd()
+	filePath := filepath.Join(workDir, "doc", "index.html")
+	file, err := os.Open(filePath)
+	if err != nil {
+		slog.Error("Failed to open file", "error", err, "filePath", filePath)
+		message := "Failed to open file"
+		return GetDoc400JSONResponse{
+			Message: &message,
+		}, nil
+	}
+	return GetDoc200TexthtmlResponse{
+		Body: file,
+	}, nil
+}
+
+func (s *Server) GetOpenapiYaml(ctx context.Context, request GetOpenapiYamlRequestObject) (GetOpenapiYamlResponseObject, error) {
+	workDir, _ := os.Getwd()
+	filePath := filepath.Join(workDir, "api.yaml")
+	file, err := os.Open(filePath)
+	if err != nil {
+		slog.Error("Failed to open file", "error", err, "filePath", filePath)
+		message := "Failed to open file"
+		return GetOpenapiYaml400JSONResponse{
+			Message: &message,
+		}, nil
+	}
+	return GetOpenapiYaml200ApplicationyamlResponse{
+		Body: file,
+	}, nil
 }
 
 func (s *Server) GetSyncsProgressDocumentHash(ctx context.Context, request GetSyncsProgressDocumentHashRequestObject) (GetSyncsProgressDocumentHashResponseObject, error) {
@@ -211,11 +245,6 @@ func NewServer(cfg config.Config, DB *sql.DB) (http.Handler, error) {
 	swagger.Servers = nil
 	r.Use(nethttpmiddleware.OapiRequestValidator(swagger))
 	r.Use(RequestLogger)
-
-	r, err = SetupRoutes(r)
-	if err != nil {
-		return nil, err
-	}
 
 	h := HandlerFromMux(NewStrictHandler(server, nil), r)
 

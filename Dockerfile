@@ -30,6 +30,10 @@ COPY --from=build /usr/local/bin/litestream /usr/local/bin/litestream
 COPY --from=build /app/synckor /app/synckor
 COPY --from=build /app/migrate /app/migrate
 
+# Copy the api.yaml and the openapi docs
+COPY /api.yaml /app/api.yaml
+COPY /doc/index.html /app/doc/index.html
+
 # Copy the configuration file and the run script
 COPY /etc/litestream.yml /etc/litestream.yml
 COPY /scripts/run.sh /app/scripts/run.sh
