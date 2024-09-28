@@ -40,4 +40,4 @@ docker-build: ## Build the docker image
 
 .PHONY: docker-run
 docker-run: ## Run the docker image
-	docker run -it --network host -p 8050:8050 -e PORT=8050 -e REGISTRATION_ENABLED=True -e LITESTREAM_ACCESS_KEY_ID=minioadmin -e LITESTREAM_SECRET_ACCESS_KEY=minioadmin -e REPLICA_URL=s3://synckor-bkt.localhost:9000/db.sqlite synckor
+	docker-compose up
