@@ -220,7 +220,7 @@ func NewServer(cfg config.Config, DB *sql.DB) (http.Handler, error) {
 	h := HandlerFromMux(NewStrictHandler(server, nil), r)
 
 	err = chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		slog.Debug("Route found", "method", method, "route", route, "middlewares", len(middlewares))
+		slog.Info("Route found", "method", method, "route", route, "middlewares", len(middlewares))
 		return nil
 	})
 	if err != nil {

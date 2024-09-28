@@ -6,7 +6,7 @@ help: ## Show help for each of the Makefile recipes.
 
 .PHONY: test
 test: ## Run the tests
-	go test -v ./...
+	go test ./...
 
 .PHONY: lint
 lint: ## Run the linters
