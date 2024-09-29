@@ -4,8 +4,7 @@ A sync server for the e-reader app [KOReader](https://koreader.rocks/).
 Made to be a drop-in replacement for the official KOReader sync server.
 
 ## Demo
-[](./demo/project_demo.mp4)
-[project_demo.mp4](demo%2Fproject_demo.mp4)
+https://github.com/user-attachments/assets/87db85a1-c015-4e63-985c-98e079071dec
 
 ## Quick Start
 * The project has an official Docker image published on github container registry.  
